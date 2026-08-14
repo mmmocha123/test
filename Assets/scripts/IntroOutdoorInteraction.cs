@@ -20,51 +20,87 @@ public class IntroOutdoorInteraction : MonoBehaviour
     // Layers checked by the interaction ray.
     [SerializeField] private LayerMask interactionMask = ~0;
 
+    // 文章表示状態を管理するManagerです。
+    // Manager that controls dialogue interaction blocking.
+    [SerializeField]
+    private IntroOutdoorDialogueManager dialogueManager;
+
     // 現在カメラ中央にある操作対象です。
     // Current interactable target in the camera center.
     private IntroOutdoorInteractable currentTarget;
 
-    // ゲーム開始時に白点を非表示にします。
-    // Hides the interaction point when gameplay begins.
     private void Start()
     {
+        // ゲーム開始時に白点を非表示にする
+        // Hide the interaction point when gameplay begins
         SetInteractionPointVisible(false);
     }
 
-    // 毎フレーム、対象確認と左クリック入力を処理します。
-    // Checks the target and left-click input every frame.
+    private void OnDisable()
+    {
+        // 無効化されたときに対象情報を消す
+        // Clear the current target when disabled
+        currentTarget = null;
+
+        SetInteractionPointVisible(false);
+    }
+
     private void Update()
     {
-        // カメラ中央にある操作対象を取得します。
-        // Finds the interactable in the center of the camera.
+        // 文章表示中または終了後クールダウン中は操作を禁止する
+        // Block interaction during dialogue and its cooldown period
+        if (
+            dialogueManager != null &&
+            dialogueManager.IsWorldInteractionBlocked
+        )
+        {
+            currentTarget = null;
+            SetInteractionPointVisible(false);
+            return;
+        }
+
+        // カメラ中央にある操作対象を取得する
+        // Find the interactable in the center of the camera
         currentTarget = FindInteractableTarget();
 
         bool canInteract =
             currentTarget != null;
 
-        // 操作可能な対象がある間だけ白点を表示します。
-        // Shows the white point only while a valid target is present.
+        // 操作可能な対象がある場合だけ白点を表示する
+        // Show the interaction point only for a valid target
         SetInteractionPointVisible(canInteract);
 
-        if (!canInteract ||
-            Mouse.current == null ||
-            Cursor.lockState != CursorLockMode.Locked ||
-            !Mouse.current.leftButton.wasPressedThisFrame)
+        if (!canInteract)
         {
             return;
         }
 
-        // 左クリックされた対象の処理を実行します。
-        // Interacts with the target when left-clicked.
+        if (Mouse.current == null)
+        {
+            return;
+        }
+
+        if (Cursor.lockState != CursorLockMode.Locked)
+        {
+            return;
+        }
+
+        if (!Mouse.current.leftButton.wasPressedThisFrame)
+        {
+            return;
+        }
+
+        // 対象をインタラクトする
+        // Interact with the current target
         currentTarget.Interact();
     }
 
-    // カメラ正面へRaycastを飛ばして操作対象を探します。
-    // Casts a ray forward from the camera to find an interactable.
     private IntroOutdoorInteractable FindInteractableTarget()
     {
-        if (playerCamera == null ||
-            Cursor.lockState != CursorLockMode.Locked)
+        if (
+            playerCamera == null ||
+            Cursor.lockState != CursorLockMode.Locked
+        )
         {
             return null;
         }
@@ -87,14 +123,16 @@ public class IntroOutdoorInteraction : MonoBehaviour
             return null;
         }
 
-        // Collider自身または親から操作用コンポーネントを探します。
-        // Searches the hit collider and its parents for an interactable.
+        // Collider自身または親からInteractableを探す
+        // Search the hit collider and its parents for an interactable
         IntroOutdoorInteractable interactable =
             hit.collider.GetComponentInParent<
                 IntroOutdoorInteractable>();
 
-        if (interactable == null ||
-            !interactable.CanInteract)
+        if (
+            interactable == null ||
+            !interactable.CanInteract
+        )
         {
             return null;
         }
@@ -102,12 +140,12 @@ public class IntroOutdoorInteraction : MonoBehaviour
         return interactable;
     }
 
-    // 白点の表示・非表示を切り替えます。
-    // Changes the visibility of the white interaction point.
     private void SetInteractionPointVisible(bool visible)
     {
-        if (interactionPoint != null &&
-            interactionPoint.activeSelf != visible)
+        if (
+            interactionPoint != null &&
+            interactionPoint.activeSelf != visible
+        )
         {
             interactionPoint.SetActive(visible);
         }
