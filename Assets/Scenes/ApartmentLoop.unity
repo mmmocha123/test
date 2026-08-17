@@ -15071,9 +15071,10 @@ GameObject:
   - component: {fileID: 324486622}
   - component: {fileID: 324486624}
   - component: {fileID: 324486625}
+  - component: {fileID: 324486626}
   m_Layer: 0
-  m_Name: player
-  m_TagString: Untagged
+  m_Name: Player
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -15098,7 +15099,7 @@ CharacterController:
   serializedVersion: 3
   m_Height: 1.5
   m_Radius: 0.25
-  m_SlopeLimit: 89
+  m_SlopeLimit: 45
   m_StepOffset: 0.5
   m_SkinWidth: 0.025
   m_MinMoveDistance: 0
@@ -15161,6 +15162,28 @@ MonoBehaviour:
   interactionMask:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!114 &324486626
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 324486620}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b83b872b947b4e69a5ac2f83142dab72, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ApartmentLoopRuntimeSetup
+  footstepClip: {fileID: 8300000, guid: b1002715462b6894a80e75bf66574563, type: 3}
+  ambientClip: {fileID: 8300000, guid: 8db08cabff17429b86bb10d45df6db09, type: 3}
+  footstepVolume: 0.7
+  ambientVolume: 0.35
+  playerCamera: {fileID: 330585545}
+  flashlightIntensity: 15
+  flashlightRange: 20
+  settingsFont: {fileID: 11400000, guid: a28abf29edc647f5910dd3a8ec1c567b, type: 2}
+  moveGuideTexture: {fileID: 2800000, guid: 6d436f17d42e41ddb89d272393a74c7b, type: 3}
+  interactGuideTexture: {fileID: 2800000, guid: db328b6cb20c4054bc61050399ae7426, type: 3}
 --- !u!43 &328840851
 Mesh:
   m_ObjectHideFlags: 0
@@ -15425,13 +15448,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 330585543}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: 0.9961307, z: -0, w: -0.08788425}
-  m_LocalPosition: {x: 0, y: 1.3499999, z: 0.00000078101385}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 1.35, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 324486623}
-  m_LocalEulerAnglesHint: {x: 0, y: 190.084, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &330585547
 MonoBehaviour:
   m_ObjectHideFlags: 0

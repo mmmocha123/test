@@ -7,6 +7,7 @@ public sealed class GameSettingsManager : MonoBehaviour
 {
     private const string MasterVolumeKey = "Settings.MasterVolume";
     private const string BrightnessKey = "Settings.Brightness";
+    private const string MouseSensitivityKey = "Settings.MouseSensitivity";
     private const float DefaultSetting = 0.5f;
     private const float MinimumExposure = -2f;
     private const float MaximumExposure = 2f;
@@ -14,6 +15,7 @@ public sealed class GameSettingsManager : MonoBehaviour
     private static GameSettingsManager instance;
     private static float masterVolume = DefaultSetting;
     private static float brightness = DefaultSetting;
+    private static float mouseSensitivity = 1f;
 
     private Volume settingsVolume;
     private VolumeProfile settingsProfile;
@@ -34,6 +36,15 @@ public sealed class GameSettingsManager : MonoBehaviour
         {
             EnsureInstance();
             return brightness;
+        }
+    }
+
+    public static float MouseSensitivity
+    {
+        get
+        {
+            EnsureInstance();
+            return mouseSensitivity;
         }
     }
 
@@ -58,6 +69,14 @@ public sealed class GameSettingsManager : MonoBehaviour
         brightness = Mathf.Clamp01(value);
         instance.ApplyBrightness();
         PlayerPrefs.SetFloat(BrightnessKey, brightness);
+        PlayerPrefs.Save();
+    }
+
+    public static void SetMouseSensitivity(float value)
+    {
+        EnsureInstance();
+        mouseSensitivity = Mathf.Clamp(value, 0.25f, 2f);
+        PlayerPrefs.SetFloat(MouseSensitivityKey, mouseSensitivity);
         PlayerPrefs.Save();
     }
 
@@ -88,6 +107,10 @@ public sealed class GameSettingsManager : MonoBehaviour
             PlayerPrefs.GetFloat(MasterVolumeKey, DefaultSetting));
         brightness = Mathf.Clamp01(
             PlayerPrefs.GetFloat(BrightnessKey, DefaultSetting));
+        mouseSensitivity = Mathf.Clamp(
+            PlayerPrefs.GetFloat(MouseSensitivityKey, 1f),
+            0.25f,
+            2f);
 
         CreateBrightnessVolume();
         AudioListener.volume = masterVolume;

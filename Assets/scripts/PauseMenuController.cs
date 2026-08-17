@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
+using TMPro;
 
 public class PauseMenuController : MonoBehaviour
 {
@@ -8,6 +9,10 @@ public class PauseMenuController : MonoBehaviour
     [SerializeField] private GameObject pauseMenu;
     [SerializeField] private Slider volumeSlider;
     [SerializeField] private Slider brightnessSlider;
+    [SerializeField] private Slider mouseSensitivitySlider;
+    [SerializeField] private TMP_FontAsset settingsFont;
+    [SerializeField] private Texture moveGuideTexture;
+    [SerializeField] private Texture interactGuideTexture;
 
     [Header("Player")]
     [SerializeField] private IntroOutdoorPlayerController playerController;
@@ -17,9 +22,33 @@ public class PauseMenuController : MonoBehaviour
     [SerializeField] private IntroOutdoorPickupUI pickupUI;
 
     private bool isPaused = false;
+    private GameObject sharedPauseCanvas;
 
     private void Awake()
     {
+        // Replace the scene-specific hierarchy with the shared view used by
+        // ApartmentLoop so both Scenes always render exactly the same UI.
+        if (pauseMenu != null)
+        {
+            pauseMenu.SetActive(false);
+        }
+
+        SharedSettingsMenuView view = SharedSettingsMenuFactory.Create(
+            settingsFont,
+            moveGuideTexture,
+            interactGuideTexture);
+        sharedPauseCanvas = view.CanvasObject;
+        pauseMenu = view.PauseMenu;
+        mouseSensitivitySlider = view.MouseSlider;
+        brightnessSlider = view.BrightnessSlider;
+        volumeSlider = view.VolumeSlider;
+
+        if (mouseSensitivitySlider != null)
+        {
+            mouseSensitivitySlider.onValueChanged.AddListener(
+                SetMouseSensitivity);
+        }
+
         if (volumeSlider != null)
         {
             volumeSlider.onValueChanged.AddListener(SetMasterVolume);
@@ -177,8 +206,22 @@ public class PauseMenuController : MonoBehaviour
         GameSettingsManager.SetBrightness(value);
     }
 
+    public void SetMouseSensitivity(float value)
+    {
+        if (playerController != null)
+        {
+            playerController.SetMouseSensitivityMultiplier(value);
+        }
+    }
+
     private void RefreshSettingsSliders()
     {
+        if (mouseSensitivitySlider != null)
+        {
+            mouseSensitivitySlider.SetValueWithoutNotify(
+                GameSettingsManager.MouseSensitivity);
+        }
+
         if (volumeSlider != null)
         {
             volumeSlider.SetValueWithoutNotify(GameSettingsManager.MasterVolume);
@@ -192,6 +235,12 @@ public class PauseMenuController : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (mouseSensitivitySlider != null)
+        {
+            mouseSensitivitySlider.onValueChanged.RemoveListener(
+                SetMouseSensitivity);
+        }
+
         if (volumeSlider != null)
         {
             volumeSlider.onValueChanged.RemoveListener(SetMasterVolume);
@@ -200,6 +249,11 @@ public class PauseMenuController : MonoBehaviour
         if (brightnessSlider != null)
         {
             brightnessSlider.onValueChanged.RemoveListener(SetBrightness);
+        }
+
+        if (sharedPauseCanvas != null)
+        {
+            Destroy(sharedPauseCanvas);
         }
     }
 }

@@ -59,6 +59,7 @@ public class IntroOutdoorPlayerController : MonoBehaviour
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
+        mouseSensitivityMultiplier = GameSettingsManager.MouseSensitivity;
     }
 
     // ゲーム開始時にカーソルを中央へ固定します。
@@ -233,6 +234,10 @@ public class IntroOutdoorPlayerController : MonoBehaviour
                 0.25f,
                 2f
             );
+
+        GameSettingsManager.SetMouseSensitivity(
+            mouseSensitivityMultiplier
+        );
     }
 
     // 外部処理から移動を停止・再開できます。

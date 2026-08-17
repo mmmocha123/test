@@ -50,6 +50,17 @@ public class FlashlightController : MonoBehaviour
         flashlightUnlocked = true;
     }
 
+    public void Configure(Light lightSource, bool unlocked)
+    {
+        flashlightLight = lightSource;
+        flashlightUnlocked = unlocked;
+
+        if (flashlightLight != null)
+        {
+            flashlightLight.enabled = false;
+        }
+    }
+
     private void ToggleFlashlight()
     {
         // Lightが設定されていない場合は処理しない

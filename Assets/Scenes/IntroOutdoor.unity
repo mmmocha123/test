@@ -31029,6 +31029,10 @@ MonoBehaviour:
   pauseMenu: {fileID: 1183728302}
   volumeSlider: {fileID: 1531073080}
   brightnessSlider: {fileID: 1564358717}
+  mouseSensitivitySlider: {fileID: 1608896933}
+  settingsFont: {fileID: 11400000, guid: a28abf29edc647f5910dd3a8ec1c567b, type: 2}
+  moveGuideTexture: {fileID: 2800000, guid: 6d436f17d42e41ddb89d272393a74c7b, type: 3}
+  interactGuideTexture: {fileID: 2800000, guid: db328b6cb20c4054bc61050399ae7426, type: 3}
   playerController: {fileID: 1925120514}
   interactionController: {fileID: 1925120513}
   pickupUI: {fileID: 328128187}
