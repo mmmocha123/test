@@ -26,6 +26,8 @@ public class FirstPersonController : MonoBehaviour
     // Mouse-look sensitivity.
     [SerializeField] private float mouseSensitivity = 0.12f;
 
+    private float mouseSensitivityMultiplier = 1f;
+
     // 重力です。
     // Gravity applied to the Player.
     [SerializeField] private float gravity = -20f;
@@ -89,6 +91,7 @@ public class FirstPersonController : MonoBehaviour
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
+        mouseSensitivityMultiplier = GameSettingsManager.MouseSensitivity;
 
         // 開始時は立った状態にします。
         // Initializes the controller in the standing state.
@@ -136,23 +139,6 @@ public class FirstPersonController : MonoBehaviour
             HandleLook();
         }
 
-        // Escキーでカーソルを解放します。
-        // Releases the cursor with Escape.
-        if (Keyboard.current != null &&
-            Keyboard.current.escapeKey.wasPressedThisFrame)
-        {
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-        }
-
-        // 左クリックでカーソルを再固定します。
-        // Locks the cursor again with a left click.
-        if (Mouse.current != null &&
-            Mouse.current.leftButton.wasPressedThisFrame &&
-            Cursor.lockState != CursorLockMode.Locked)
-        {
-            LockCursor();
-        }
     }
 
     // 左Ctrl入力とCharacterControllerの高さを処理します。
@@ -394,7 +380,8 @@ public class FirstPersonController : MonoBehaviour
 
         Vector2 mouseDelta =
             Mouse.current.delta.ReadValue() *
-            mouseSensitivity;
+            mouseSensitivity *
+            mouseSensitivityMultiplier;
 
         pitch -= mouseDelta.y;
 
@@ -433,6 +420,12 @@ public class FirstPersonController : MonoBehaviour
     public void SetLookEnabled(bool enabled)
     {
         lookEnabled = enabled;
+    }
+
+    public void SetMouseSensitivityMultiplier(float multiplier)
+    {
+        mouseSensitivityMultiplier = Mathf.Clamp(multiplier, 0.25f, 2f);
+        GameSettingsManager.SetMouseSensitivity(mouseSensitivityMultiplier);
     }
 
     // 敵から見えない状態を設定します。
