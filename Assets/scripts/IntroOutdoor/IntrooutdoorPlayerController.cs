@@ -18,9 +18,13 @@ public class IntroOutdoorPlayerController : MonoBehaviour
     // Sprint speed while Left Shift is held.
     [SerializeField] private float sprintSpeed = 5.5f;
 
-    // マウスによる視点移動の感度です。
-    // Mouse-look sensitivity.
+    // 基準となるマウス視点感度です。
+    // Base mouse-look sensitivity.
     [SerializeField] private float mouseSensitivity = 0.12f;
+
+    // 設定画面から変更するマウス感度倍率です。
+    // Mouse sensitivity multiplier controlled by the settings menu.
+    [SerializeField] private float mouseSensitivityMultiplier = 1f;
 
     // Playerへ加える重力です。
     // Gravity applied to the Player.
@@ -64,41 +68,27 @@ public class IntroOutdoorPlayerController : MonoBehaviour
         LockCursor();
     }
 
-    // 毎フレーム、移動・視点・カーソル操作を更新します。
-    // Updates movement, camera look, and cursor control every frame.
+    // 毎フレーム、移動と視点操作を更新します。
+    // Updates movement and camera look every frame.
     private void Update()
     {
         // CharacterControllerが有効な場合だけ移動処理を実行します。
         // Runs movement only while the CharacterController is active.
-        if (movementEnabled &&
+        if (
+            movementEnabled &&
             controller != null &&
             controller.enabled &&
-            gameObject.activeInHierarchy)
+            gameObject.activeInHierarchy
+        )
         {
             HandleMovement();
         }
 
+        // 視点操作が有効な場合だけ処理します。
+        // Processes camera look only while look input is enabled.
         if (lookEnabled)
         {
             HandleLook();
-        }
-
-        // Escキーでカーソルを解放します。
-        // Releases the cursor when Escape is pressed.
-        if (Keyboard.current != null &&
-            Keyboard.current.escapeKey.wasPressedThisFrame)
-        {
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-        }
-
-        // カーソル解放中に左クリックすると再固定します。
-        // Locks the cursor again when left-clicking while unlocked.
-        if (Mouse.current != null &&
-            Mouse.current.leftButton.wasPressedThisFrame &&
-            Cursor.lockState != CursorLockMode.Locked)
-        {
-            LockCursor();
         }
     }
 
@@ -179,7 +169,9 @@ public class IntroOutdoorPlayerController : MonoBehaviour
         // Moves only while the CharacterController is active.
         if (controller != null && controller.enabled)
         {
-            controller.Move(motion * Time.deltaTime);
+            controller.Move(
+                motion * Time.deltaTime
+            );
         }
     }
 
@@ -187,18 +179,21 @@ public class IntroOutdoorPlayerController : MonoBehaviour
     // Handles first-person mouse-look input.
     private void HandleLook()
     {
-        if (Mouse.current == null ||
+        if (
+            Mouse.current == null ||
             cameraTransform == null ||
-            Cursor.lockState != CursorLockMode.Locked)
+            Cursor.lockState != CursorLockMode.Locked
+        )
         {
             return;
         }
 
-        // 現在フレームのマウス移動量を取得します。
-        // Reads mouse movement for the current frame.
+        // 現在フレームのマウス移動量へ基準感度と設定倍率を適用します。
+        // Applies the base sensitivity and settings multiplier to mouse movement.
         Vector2 mouseDelta =
             Mouse.current.delta.ReadValue() *
-            mouseSensitivity;
+            mouseSensitivity *
+            mouseSensitivityMultiplier;
 
         // カメラの上下角度を計算します。
         // Calculates the vertical camera angle.
@@ -213,11 +208,31 @@ public class IntroOutdoorPlayerController : MonoBehaviour
         // 上下回転はカメラへ適用します。
         // Applies vertical rotation to the camera.
         cameraTransform.localRotation =
-            Quaternion.Euler(pitch, 0f, 0f);
+            Quaternion.Euler(
+                pitch,
+                0f,
+                0f
+            );
 
         // 左右回転はPlayer全体へ適用します。
         // Applies horizontal rotation to the entire Player.
-        transform.Rotate(Vector3.up * mouseDelta.x);
+        transform.Rotate(
+            Vector3.up * mouseDelta.x
+        );
+    }
+
+    // 設定画面からマウス感度倍率を変更します。
+    // Changes the mouse sensitivity multiplier from the settings menu.
+    public void SetMouseSensitivityMultiplier(float multiplier)
+    {
+        // 感度倍率を0.25倍から2倍の範囲に制限します。
+        // Clamps the sensitivity multiplier between 0.25 and 2.
+        mouseSensitivityMultiplier =
+            Mathf.Clamp(
+                multiplier,
+                0.25f,
+                2f
+            );
     }
 
     // 外部処理から移動を停止・再開できます。
@@ -243,7 +258,9 @@ public class IntroOutdoorPlayerController : MonoBehaviour
     // Locks and hides the cursor.
     private void LockCursor()
     {
-        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.lockState =
+            CursorLockMode.Locked;
+
         Cursor.visible = false;
     }
 }
