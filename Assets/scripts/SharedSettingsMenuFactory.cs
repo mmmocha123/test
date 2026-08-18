@@ -86,19 +86,10 @@ public static class SharedSettingsMenuFactory
 
         CreateLabel(group.transform, label, new Vector2(150f, 30f), new Vector2(300f, 50f), 36f, font);
 
-        DefaultControls.Resources resources = new DefaultControls.Resources
-        {
-            standard = Resources.GetBuiltinResource<Sprite>("UI/Skin/UISprite.psd"),
-            background = Resources.GetBuiltinResource<Sprite>("UI/Skin/Background.psd"),
-            inputField = Resources.GetBuiltinResource<Sprite>("UI/Skin/InputFieldBackground.psd"),
-            knob = Resources.GetBuiltinResource<Sprite>("UI/Skin/Knob.psd"),
-            checkmark = Resources.GetBuiltinResource<Sprite>("UI/Skin/Checkmark.psd"),
-            dropdown = Resources.GetBuiltinResource<Sprite>("UI/Skin/DropdownArrow.psd"),
-            // UIMask.psd was removed from Unity 6's built-in UI resources.
-            // Slider generation does not require a dedicated mask sprite, so
-            // use the supported UI sprite instead and avoid a console error.
-            mask = Resources.GetBuiltinResource<Sprite>("UI/Skin/UISprite.psd")
-        };
+        // Unity 6 no longer ships the legacy UI/Skin/*.psd built-in resources.
+        // DefaultControls still builds a fully functional slider with null
+        // sprites; its Image components render using Unity's white texture.
+        DefaultControls.Resources resources = new DefaultControls.Resources();
 
         // Use Unity UI's own default Slider generator so the hierarchy,
         // sprites, fill area, handle slide area and transitions are identical

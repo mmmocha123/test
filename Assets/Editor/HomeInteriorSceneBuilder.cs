@@ -1,11 +1,11 @@
 using TMPro;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 [InitializeOnLoad]
 public static class HomeInteriorSceneBuilder
@@ -81,16 +81,15 @@ public static class HomeInteriorSceneBuilder
         building.transform.SetParent(environment.transform, false);
         ConvertMaterialsToUrp(building);
         AddMeshColliders(building, true);
-        ConfigureDoors(building);
 
         GameObject furnishings = (GameObject)PrefabUtility.InstantiatePrefab(objectsAsset, scene);
         furnishings.name = "Furnishings";
         furnishings.transform.SetParent(environment.transform, false);
         ConvertMaterialsToUrp(furnishings);
         AddMeshColliders(furnishings, false);
-        ConfigureFurnitureDoors(furnishings);
 
-        CreatePlayer();
+        PlayerInteraction playerInteraction = CreatePlayer();
+        CreateClosetHideSpot(environment.transform, playerInteraction);
         CreateLighting();
 
         EditorSceneManager.MarkSceneDirty(scene);
@@ -201,75 +200,6 @@ public static class HomeInteriorSceneBuilder
         return null;
     }
 
-    private static void ConfigureDoors(GameObject building)
-    {
-        Renderer[] renderers = building.GetComponentsInChildren<Renderer>(true);
-        foreach (Renderer renderer in renderers)
-        {
-            string objectName = renderer.name.ToLowerInvariant();
-            bool hasDoorMaterial = renderer.sharedMaterials.Any(material =>
-                material != null && material.name.ToLowerInvariant().Contains("door"));
-            bool separatedBathroomDoor =
-                objectName.StartsWith("interior walls.") && hasDoorMaterial;
-            bool isDoor = objectName.Contains("door") || separatedBathroomDoor;
-            if (!isDoor || objectName == "front door") continue;
-
-            bool sliding = objectName.Contains("sliding") ||
-                           objectName.Contains("closet") ||
-                           objectName.Contains("balcony");
-            CreateDoorController(renderer, sliding);
-        }
-    }
-
-    private static void ConfigureFurnitureDoors(GameObject furnishings)
-    {
-        foreach (Renderer renderer in furnishings.GetComponentsInChildren<Renderer>(true))
-        {
-            string objectName = renderer.name.ToLowerInvariant();
-            if (!objectName.Contains("door") && !objectName.Contains("drawer")) continue;
-            CreateDoorController(renderer, objectName.Contains("drawer"));
-        }
-    }
-
-    private static void CreateDoorController(Renderer renderer, bool sliding)
-    {
-        Transform doorPart = renderer.transform;
-        Transform oldParent = doorPart.parent;
-        Bounds bounds = renderer.bounds;
-
-        GameObject pivotObject = new GameObject(renderer.name + " Interaction Pivot");
-        pivotObject.transform.SetParent(oldParent, true);
-
-        if (sliding)
-        {
-            pivotObject.transform.position = doorPart.position;
-        }
-        else
-        {
-            Vector3 hinge = bounds.center;
-            if (bounds.size.x >= bounds.size.z) hinge.x -= bounds.extents.x;
-            else hinge.z -= bounds.extents.z;
-            pivotObject.transform.position = hinge;
-        }
-
-        pivotObject.transform.rotation = oldParent != null ? oldParent.rotation : Quaternion.identity;
-        doorPart.SetParent(pivotObject.transform, true);
-
-        HomeInteriorDoor controller = pivotObject.AddComponent<HomeInteriorDoor>();
-        if (sliding)
-        {
-            Vector3 direction = bounds.size.x >= bounds.size.z ? Vector3.right : Vector3.forward;
-            float distance = Mathf.Max(bounds.size.x, bounds.size.z) * 0.9f;
-            Vector3 localOffset = pivotObject.transform.InverseTransformVector(direction * distance);
-            controller.Configure(doorPart, true, doorPart.localPosition + localOffset, doorPart.localRotation);
-        }
-        else
-        {
-            controller.Configure(doorPart, false, doorPart.localPosition,
-                doorPart.localRotation * Quaternion.Euler(0f, 90f, 0f));
-        }
-    }
-
     private static string SanitizeFileName(string value)
     {
         foreach (char invalid in Path.GetInvalidFileNameChars())
@@ -309,7 +239,7 @@ public static class HomeInteriorSceneBuilder
         }
     }
 
-    private static void CreatePlayer()
+    private static PlayerInteraction CreatePlayer()
     {
         // The front door is centred at x=-0.45 and the hall extends inward from it.
         // This point is just inside the genkan, facing into the home.
@@ -357,6 +287,122 @@ public static class HomeInteriorSceneBuilder
             AssetDatabase.LoadAssetAtPath<Texture>("Assets/Resources/SettingsUI/MoveGuide.png"));
         SetObjectReference(runtime, "interactGuideTexture",
             AssetDatabase.LoadAssetAtPath<Texture>("Assets/Resources/SettingsUI/InteractGuide.png"));
+        return interaction;
+    }
+
+    [MenuItem("Tools/Home Interior/Install Closet Hide Spot In Existing Scene")]
+    public static void InstallClosetHideSpotInExistingScene()
+    {
+        Scene scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+        GameObject environment = GameObject.Find("Home Environment");
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        PlayerInteraction interaction =
+            player != null ? player.GetComponent<PlayerInteraction>() : null;
+
+        if (environment == null || interaction == null)
+        {
+            Debug.LogError("HomeInterior: environment or PlayerInteraction was not found.");
+            return;
+        }
+
+        CreateClosetHideSpot(environment.transform, interaction);
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene, ScenePath);
+        AssetDatabase.SaveAssets();
+        Debug.Log("HomeInterior: closet hide spot installed without changing door transforms.");
+    }
+
+    public static void InstallClosetHideSpotBatch()
+    {
+        InstallClosetHideSpotInExistingScene();
+    }
+
+    private static void CreateClosetHideSpot(
+        Transform environment,
+        PlayerInteraction interaction)
+    {
+        GameObject previous = GameObject.Find("HomeInterior Closet Hide Spot");
+        if (previous != null) Object.DestroyImmediate(previous);
+
+        GameObject previousPoints = GameObject.Find("HomeInterior Closet Hide Points");
+        if (previousPoints != null) Object.DestroyImmediate(previousPoints);
+
+        GameObject previousCanvas = GameObject.Find("HomeInterior HUD");
+        if (previousCanvas != null) Object.DestroyImmediate(previousCanvas);
+
+        Transform closetDoor = FindChildByName(environment, "closet door.001");
+        if (closetDoor == null)
+        {
+            Debug.LogError("HomeInterior: closet door.001 was not found.");
+            return;
+        }
+
+        GameObject pointsObject = new GameObject("HomeInterior Closet Hide Points");
+        pointsObject.transform.SetParent(environment, false);
+
+        GameObject hidePointObject = new GameObject("HidePoint");
+        hidePointObject.transform.SetParent(pointsObject.transform, false);
+        hidePointObject.transform.localPosition = new Vector3(-1.5f, 0.08f, -0.55f);
+        hidePointObject.transform.localRotation = Quaternion.identity;
+
+        GameObject exitPointObject = new GameObject("ExitPoint");
+        exitPointObject.transform.SetParent(pointsObject.transform, false);
+        exitPointObject.transform.localPosition = new Vector3(-1.5f, 0.08f, 0.65f);
+        exitPointObject.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+
+        LockerHideSpot hideSpot = closetDoor.GetComponent<LockerHideSpot>();
+        if (hideSpot == null) hideSpot = closetDoor.gameObject.AddComponent<LockerHideSpot>();
+        hideSpot.ConfigureWithoutDoor(
+            hidePointObject.transform,
+            exitPointObject.transform);
+
+        GameObject interactionPoint = CreateInteractionPoint();
+        SetObjectReference(interaction, "interactionPoint", interactionPoint);
+    }
+
+    private static Transform FindChildByName(Transform root, string objectName)
+    {
+        foreach (Transform child in root.GetComponentsInChildren<Transform>(true))
+        {
+            if (child.name == objectName) return child;
+        }
+        return null;
+    }
+
+    private static GameObject CreateInteractionPoint()
+    {
+        GameObject canvasObject = new GameObject(
+            "HomeInterior HUD",
+            typeof(Canvas),
+            typeof(CanvasScaler),
+            typeof(GraphicRaycaster));
+        Canvas canvas = canvasObject.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = 50;
+
+        CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920f, 1080f);
+        scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+        scaler.matchWidthOrHeight = 0.5f;
+
+        GameObject point = new GameObject(
+            "InteractionPoint",
+            typeof(RectTransform),
+            typeof(CanvasRenderer),
+            typeof(Image));
+        point.layer = 5;
+        point.transform.SetParent(canvasObject.transform, false);
+        RectTransform rect = point.GetComponent<RectTransform>();
+        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = Vector2.zero;
+        rect.sizeDelta = new Vector2(6f, 6f);
+        Image image = point.GetComponent<Image>();
+        image.sprite = null;
+        image.color = Color.white;
+        image.raycastTarget = false;
+        point.SetActive(false);
+        return point;
     }
 
     private static void CreateLighting()

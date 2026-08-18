@@ -27,9 +27,6 @@ public sealed class HomeInteriorRuntimeSetup : MonoBehaviour
     {
         FirstPersonController playerController = GetComponent<FirstPersonController>();
         PlayerInteraction interactionController = GetComponent<PlayerInteraction>();
-        HomeInteriorDoorInteractor doorInteractor =
-            gameObject.AddComponent<HomeInteriorDoorInteractor>();
-        doorInteractor.Configure(playerCamera);
         FlashlightController flashlight = CreateFlashlight();
 
         ApartmentLoopFootstepAudio footsteps =

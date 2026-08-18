@@ -3,6 +3,9 @@ using UnityEngine;
 
 public class LockerHideSpot : MonoBehaviour
 {
+    [Header("Door Animation")]
+    [SerializeField] private bool animateDoor = true;
+
     // 回転させるドアの蝶番です。
     // The door hinge that will be rotated.
     [SerializeField] private Transform doorHinge;
@@ -55,7 +58,7 @@ public class LockerHideSpot : MonoBehaviour
     // Stores the closed and open door rotations.
     private void Awake()
     {
-        if (doorHinge == null)
+        if (!animateDoor || doorHinge == null)
         {
             return;
         }
@@ -74,7 +77,7 @@ public class LockerHideSpot : MonoBehaviour
         if (isTransitioning ||
             isOccupied ||
             player == null ||
-            doorHinge == null ||
+            (animateDoor && doorHinge == null) ||
             hidePoint == null)
         {
             return false;
@@ -130,7 +133,10 @@ public class LockerHideSpot : MonoBehaviour
 
         // ドアを外側へ開きます。
         // Opens the door outward.
-        yield return RotateDoor(openRotation);
+        if (animateDoor)
+        {
+            yield return RotateDoor(openRotation);
+        }
 
         // PlayerをHidePointへ移動させます。
         // Moves the Player to the HidePoint.
@@ -138,7 +144,10 @@ public class LockerHideSpot : MonoBehaviour
 
         // ドアを閉じます。
         // Closes the door.
-        yield return RotateDoor(closedRotation);
+        if (animateDoor)
+        {
+            yield return RotateDoor(closedRotation);
+        }
 
         // 敵から見えない状態にします。
         // Marks the Player as hidden from enemies.
@@ -151,6 +160,14 @@ public class LockerHideSpot : MonoBehaviour
 
         isOccupied = true;
         isTransitioning = false;
+    }
+
+    public void ConfigureWithoutDoor(Transform hiddenPosition, Transform outsidePosition)
+    {
+        animateDoor = false;
+        doorHinge = null;
+        hidePoint = hiddenPosition;
+        exitPoint = outsidePosition;
     }
 
     // 退出時はドアを動かさず、Playerだけを移動させます。
