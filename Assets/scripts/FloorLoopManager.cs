@@ -1,171 +1,278 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
+
+public enum FloorMoveDirection { Up = 1, Down = -1 }
+
+[Serializable]
+public sealed class FloorLoopSnapshot
+{
+    public int currentLogicalFloor;
+    public float nextUpTriggerY;
+    public float nextDownTriggerY;
+    public List<FloorState> floors = new List<FloorState>();
+
+    [Serializable]
+    public sealed class FloorState
+    {
+        public FloorRuntimeData floor;
+        public Vector3 position;
+        public Quaternion rotation;
+        public int logicalFloor;
+    }
+}
 
 public class FloorLoopManager : MonoBehaviour
 {
-    // プレイヤー本体です。
-    // The player Transform.
     [SerializeField] private Transform player;
-
-    // 循環させるフロアの親オブジェクトです。
-    // Floor root objects to recycle.
-    [SerializeField] private List<Transform> floors =
-        new List<Transform>();
-
-    // 隣接するフロア間の高さです。
-    // Vertical distance between adjacent floors.
+    [SerializeField] private List<Transform> floors = new List<Transform>();
     [SerializeField] private float floorHeight = 3f;
-
-    // 階段へ何m入った時点で再配置するかを指定します。
-    // Distance from the floor level at which recycling begins.
     [SerializeField] private float recycleTriggerOffset = 0.2f;
-
-    // 次に上方向の再配置を行う高さです。
-    // Next upward recycling threshold.
+    [SerializeField] private int initialLogicalFloor = 4;
     private float nextUpTriggerY;
-
-    // 次に下方向の再配置を行う高さです。
-    // Next downward recycling threshold.
     private float nextDownTriggerY;
+    private bool allowUp = true;
+    private bool allowDown = true;
+    private const float StoryArrivalTolerance = 0.65f;
 
-    // ゲーム開始時にフロアと判定位置を初期化します。
-    // Initializes floors and recycling thresholds.
+    public int CurrentLogicalFloorIndex { get; private set; }
+    public float NextUpTriggerY => nextUpTriggerY;
+    public float NextDownTriggerY => nextDownTriggerY;
+    public event Action<int, int, FloorMoveDirection> FloorChanged;
+    public event Action<FloorRuntimeData> FloorRecycled;
+    public event Action<FloorRuntimeData> FloorRecycling;
+    public event Action FloorsRestored;
+    public event Action<FloorMoveDirection> BlockedDirectionAttempt;
+    public IReadOnlyList<FloorRuntimeData> FloorsByHeight => floors.Where(f => f != null).OrderBy(f => f.position.y).Select(EnsureRuntimeData).ToArray();
+
     private void Start()
     {
-        if (player == null || floors.Count < 3)
-        {
-            return;
-        }
-
+        if (player == null || floors.Count < 3) return;
         SortFloors();
-
-        // プレイヤーに最も近いフロアのY座標を基準にします。
-        // Uses the floor closest to the player as the starting reference.
         float startingFloorY = GetClosestFloorY();
-
-        nextUpTriggerY =
-            startingFloorY + recycleTriggerOffset;
-
-        nextDownTriggerY =
-            startingFloorY - recycleTriggerOffset;
+        nextUpTriggerY = startingFloorY + floorHeight + recycleTriggerOffset;
+        nextDownTriggerY = startingFloorY - recycleTriggerOffset;
+        CurrentLogicalFloorIndex = initialLogicalFloor;
+        int storyFloorIndex = FindStartingStoryFloorIndex();
+        for (int i = 0; i < floors.Count; i++) EnsureRuntimeData(floors[i]).SetLogicalFloor(initialLogicalFloor + i - storyFloorIndex);
     }
 
-    // プレイヤー移動後にフロアの再配置を判定します。
-    // Checks floor recycling after player movement.
     private void LateUpdate()
     {
-        if (player == null ||
-            floors.Count < 3 ||
-            floorHeight <= 0f ||
-            recycleTriggerOffset <= 0f)
-        {
-            return;
-        }
-
-        // 上方向の判定位置を越えた場合です。
-        // Runs when the player crosses the upward threshold.
+        if (player == null || floors.Count < 3 || floorHeight <= 0f || recycleTriggerOffset <= 0f) return;
         if (player.position.y >= nextUpTriggerY)
         {
+            if (!allowUp)
+            {
+                BlockPlayerAtBoundary(FloorMoveDirection.Up);
+                return;
+            }
+
             MoveLowestFloorToTop();
-
-            // 戻ってきた場合の下方向判定を、
-            // 今回越えた階段の少し下へ設定します。
-            // Places the downward threshold below the crossed boundary.
-            nextDownTriggerY =
-                nextUpTriggerY - recycleTriggerOffset * 2f;
-
-            // 次の階の上方向判定へ進めます。
-            // Advances the next upward threshold by one floor.
+            nextDownTriggerY = nextUpTriggerY - recycleTriggerOffset * 2f;
             nextUpTriggerY += floorHeight;
         }
-        // 下方向の判定位置を越えた場合です。
-        // Runs when the player crosses the downward threshold.
         else if (player.position.y <= nextDownTriggerY)
         {
+            if (!allowDown)
+            {
+                BlockPlayerAtBoundary(FloorMoveDirection.Down);
+                return;
+            }
+
             MoveHighestFloorToBottom();
-
-            // 戻ってきた場合の上方向判定を、
-            // 今回越えた階段の少し上へ設定します。
-            // Places the upward threshold above the crossed boundary.
-            nextUpTriggerY =
-                nextDownTriggerY + recycleTriggerOffset * 2f;
-
-            // 次の階の下方向判定へ進めます。
-            // Advances the next downward threshold by one floor.
+            nextUpTriggerY = nextDownTriggerY + recycleTriggerOffset * 2f;
             nextDownTriggerY -= floorHeight;
         }
+
+
+        UpdateLogicalFloorAtCorridor();
     }
 
-    // プレイヤーに最も近いフロアのY座標を取得します。
-    // Finds the floor Y position closest to the player.
-    private float GetClosestFloorY()
+    private void UpdateLogicalFloorAtCorridor()
     {
-        float closestY = floors[0].position.y;
-        float closestDistance =
-            Mathf.Abs(player.position.y - closestY);
+        FloorRuntimeData arrivedFloor = null;
+        float closestDistance = float.PositiveInfinity;
 
-        foreach (Transform floor in floors)
+        foreach (FloorRuntimeData floor in FloorsByHeight)
         {
-            float distance =
-                Mathf.Abs(player.position.y - floor.position.y);
+            Transform exitPoint = FindExitPoint(floor.transform);
+            if (exitPoint == null) continue;
 
-            if (distance < closestDistance)
+            float distance = Mathf.Abs(
+                player.position.y - exitPoint.position.y);
+
+            if (distance <= StoryArrivalTolerance &&
+                distance < closestDistance)
             {
                 closestDistance = distance;
-                closestY = floor.position.y;
+                arrivedFloor = floor;
             }
         }
 
-        return closestY;
+        if (arrivedFloor == null ||
+            arrivedFloor.LogicalFloorIndex == CurrentLogicalFloorIndex)
+        {
+            return;
+        }
+
+        int difference =
+            arrivedFloor.LogicalFloorIndex - CurrentLogicalFloorIndex;
+
+        // 通常移動では隣接階だけを通知する。Checkpoint等による
+        // Transform復元をStory進行として誤検出しない。
+        if (Mathf.Abs(difference) != 1) return;
+
+        int previous = CurrentLogicalFloorIndex;
+        CurrentLogicalFloorIndex = arrivedFloor.LogicalFloorIndex;
+        FloorMoveDirection direction = difference > 0
+            ? FloorMoveDirection.Up
+            : FloorMoveDirection.Down;
+        FloorChanged?.Invoke(previous, CurrentLogicalFloorIndex, direction);
     }
 
-    // 最下段のフロアを最上段へ移動します。
-    // Moves the lowest floor above the highest floor.
+    private void BlockPlayerAtBoundary(FloorMoveDirection direction)
+    {
+        float safeY = direction == FloorMoveDirection.Up
+            ? nextUpTriggerY - 0.18f
+            : nextDownTriggerY + 0.18f;
+        Vector3 safePosition = player.position;
+        safePosition.y = safeY;
+
+        FirstPersonController controller =
+            player.GetComponent<FirstPersonController>();
+
+        if (controller != null)
+        {
+            controller.RestorePose(safePosition, player.rotation);
+        }
+        else
+        {
+            player.position = safePosition;
+        }
+
+        Physics.SyncTransforms();
+        BlockedDirectionAttempt?.Invoke(direction);
+    }
+
+    public void SetMovementPermissions(bool up, bool down)
+    {
+        allowUp = up;
+        allowDown = down;
+    }
+
+    private float GetClosestFloorY() => floors.OrderBy(f => Mathf.Abs(player.position.y - f.position.y)).First().position.y;
+
+    private int FindStartingStoryFloorIndex()
+    {
+        int bestIndex = 0;
+        float bestDistance = float.PositiveInfinity;
+
+        for (int i = 0; i < floors.Count; i++)
+        {
+            Transform exitPoint = FindExitPoint(floors[i]);
+            float referenceY = exitPoint != null
+                ? exitPoint.position.y
+                : floors[i].position.y;
+            float distance = Mathf.Abs(player.position.y - referenceY);
+
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                bestIndex = i;
+            }
+        }
+
+        return bestIndex;
+    }
+
+    private static Transform FindExitPoint(Transform floor)
+    {
+        LockerHideSpot hideSpot =
+            floor.GetComponentInChildren<LockerHideSpot>(true);
+
+        if (hideSpot == null) return null;
+
+        Transform current = hideSpot.transform;
+        while (current != null && current != floor)
+        {
+            Transform exit = current.Find("ExitPoint");
+            if (exit != null) return exit;
+            current = current.parent;
+        }
+
+        return null;
+    }
+
     private void MoveLowestFloorToTop()
     {
         SortFloors();
-
-        Transform lowestFloor = floors[0];
-        Transform highestFloor = floors[floors.Count - 1];
-
-        lowestFloor.position =
-            highestFloor.position + Vector3.up * floorHeight;
-
-        // 移動した床・壁・ドアのCollider位置を即座に反映します。
-        // Immediately synchronizes moved colliders with the physics engine.
+        Transform moved = floors[0];
+        FloorRuntimeData data = EnsureRuntimeData(moved);
+        FloorRecycling?.Invoke(data);
+        int logical = EnsureRuntimeData(floors[^1]).LogicalFloorIndex + 1;
+        moved.position = floors[^1].position + Vector3.up * floorHeight;
+        data.SetLogicalFloor(logical);
         Physics.SyncTransforms();
-
         SortFloors();
+        FloorRecycled?.Invoke(data);
     }
 
-    // 最上段のフロアを最下段へ移動します。
-    // Moves the highest floor below the lowest floor.
     private void MoveHighestFloorToBottom()
     {
         SortFloors();
-
-        Transform lowestFloor = floors[0];
-        Transform highestFloor = floors[floors.Count - 1];
-
-        highestFloor.position =
-            lowestFloor.position - Vector3.up * floorHeight;
-
-        // 移動した床・壁・ドアのCollider位置を即座に反映します。
-        // Immediately synchronizes moved colliders with the physics engine.
+        Transform moved = floors[^1];
+        FloorRuntimeData data = EnsureRuntimeData(moved);
+        FloorRecycling?.Invoke(data);
+        int logical = EnsureRuntimeData(floors[0]).LogicalFloorIndex - 1;
+        moved.position = floors[0].position - Vector3.up * floorHeight;
+        data.SetLogicalFloor(logical);
         Physics.SyncTransforms();
-
         SortFloors();
+        FloorRecycled?.Invoke(data);
     }
 
-    // フロアをワールドY座標の低い順に並べます。
-    // Sorts floors by world-space Y position.
+    private FloorRuntimeData EnsureRuntimeData(Transform floor)
+    {
+        FloorRuntimeData data = floor.GetComponent<FloorRuntimeData>();
+        return data != null ? data : floor.gameObject.AddComponent<FloorRuntimeData>();
+    }
+
     private void SortFloors()
     {
-        floors.RemoveAll(floor => floor == null);
+        floors.RemoveAll(f => f == null);
+        floors.Sort((a, b) => a.position.y.CompareTo(b.position.y));
+    }
 
-        floors.Sort(
-            (floorA, floorB) =>
-                floorA.position.y.CompareTo(floorB.position.y)
-        );
+    public FloorRuntimeData GetCurrentFloor()
+    {
+        FloorRuntimeData logicalMatch = FloorsByHeight.FirstOrDefault(f => f.LogicalFloorIndex == CurrentLogicalFloorIndex);
+        return logicalMatch != null ? logicalMatch : FloorsByHeight.OrderBy(f => Mathf.Abs(player.position.y - f.transform.position.y)).FirstOrDefault();
+    }
+
+    public FloorLoopSnapshot CaptureState()
+    {
+        var snapshot = new FloorLoopSnapshot { currentLogicalFloor = CurrentLogicalFloorIndex, nextUpTriggerY = nextUpTriggerY, nextDownTriggerY = nextDownTriggerY };
+        foreach (FloorRuntimeData floor in FloorsByHeight)
+            snapshot.floors.Add(new FloorLoopSnapshot.FloorState { floor = floor, position = floor.transform.position, rotation = floor.transform.rotation, logicalFloor = floor.LogicalFloorIndex });
+        return snapshot;
+    }
+
+    public void RestoreState(FloorLoopSnapshot snapshot)
+    {
+        if (snapshot == null) return;
+        foreach (var state in snapshot.floors)
+        {
+            if (state.floor == null) continue;
+            state.floor.transform.SetPositionAndRotation(state.position, state.rotation);
+            state.floor.SetLogicalFloor(state.logicalFloor);
+        }
+        CurrentLogicalFloorIndex = snapshot.currentLogicalFloor;
+        nextUpTriggerY = snapshot.nextUpTriggerY;
+        nextDownTriggerY = snapshot.nextDownTriggerY;
+        SortFloors();
+        Physics.SyncTransforms();
+        FloorsRestored?.Invoke();
     }
 }

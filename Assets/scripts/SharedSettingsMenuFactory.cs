@@ -94,7 +94,10 @@ public static class SharedSettingsMenuFactory
             knob = Resources.GetBuiltinResource<Sprite>("UI/Skin/Knob.psd"),
             checkmark = Resources.GetBuiltinResource<Sprite>("UI/Skin/Checkmark.psd"),
             dropdown = Resources.GetBuiltinResource<Sprite>("UI/Skin/DropdownArrow.psd"),
-            mask = Resources.GetBuiltinResource<Sprite>("UI/Skin/UIMask.psd")
+            // UIMask.psd was removed from Unity 6's built-in UI resources.
+            // Slider generation does not require a dedicated mask sprite, so
+            // use the supported UI sprite instead and avoid a console error.
+            mask = Resources.GetBuiltinResource<Sprite>("UI/Skin/UISprite.psd")
         };
 
         // Use Unity UI's own default Slider generator so the hierarchy,

@@ -18,6 +18,8 @@ public class FirstPersonController : MonoBehaviour
     // Sprinting speed.
     [SerializeField] private float sprintSpeed = 5.5f;
 
+    [SerializeField] private bool sprintEnabled = true;
+
     // しゃがみ中の移動速度です。
     // Movement speed while crouching.
     [SerializeField] private float crouchSpeed = 1.5f;
@@ -85,6 +87,9 @@ public class FirstPersonController : MonoBehaviour
     // 現在しゃがみ状態かどうかです。
     // Whether the Player is currently crouching.
     public bool IsCrouching { get; private set; }
+
+    public float MoveSpeed => moveSpeed;
+    public float LookPitch => pitch;
 
     // ゲーム開始前に必要なコンポーネントを取得します。
     // Gets required components before gameplay begins.
@@ -334,6 +339,7 @@ public class FirstPersonController : MonoBehaviour
         // しゃがみ中はダッシュできません。
         // Disables sprinting while crouching.
         bool isSprinting =
+            sprintEnabled &&
             keyboard != null &&
             keyboard.leftShiftKey.isPressed &&
             !IsCrouching;
@@ -453,6 +459,26 @@ public class FirstPersonController : MonoBehaviour
     public CharacterController GetCharacterController()
     {
         return controller;
+    }
+
+    public void SetSprintEnabled(bool enabled)
+    {
+        sprintEnabled = enabled;
+    }
+
+    public void RestorePose(Vector3 position, Quaternion rotation)
+    {
+        bool wasEnabled = controller != null && controller.enabled;
+        if (controller != null) controller.enabled = false;
+        transform.SetPositionAndRotation(position, rotation);
+        verticalVelocity = 0f;
+        if (controller != null) controller.enabled = wasEnabled;
+    }
+
+    public void RestoreLookPitch(float value)
+    {
+        pitch = Mathf.Clamp(value, -maxLookAngle, maxLookAngle);
+        if (cameraTransform != null) cameraTransform.localRotation = Quaternion.Euler(pitch, 0f, 0f);
     }
 
     // カーソルを固定して非表示にします。

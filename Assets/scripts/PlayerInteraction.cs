@@ -28,6 +28,11 @@ public class PlayerInteraction : MonoBehaviour
     // The locker currently occupied by the Player.
     private LockerHideSpot currentLocker;
 
+    private bool interactionEnabled = true;
+    private bool previousHidden;
+
+    public event System.Action<bool> HiddenStateChanged;
+
     // ゲーム開始前に必要なコンポーネントを取得します。
     // Gets required components before gameplay starts.
     private void Awake()
@@ -47,12 +52,28 @@ public class PlayerInteraction : MonoBehaviour
     // Checks the interaction target and left click every frame.
     private void Update()
     {
+        bool hidden = playerController != null && playerController.IsHidden;
+        if (hidden != previousHidden)
+        {
+            previousHidden = hidden;
+            HiddenStateChanged?.Invoke(hidden);
+        }
+
+        if (!interactionEnabled)
+        {
+            SetInteractionPointVisible(false);
+            return;
+        }
+
         if (playerCamera == null ||
             Cursor.lockState != CursorLockMode.Locked)
         {
             SetInteractionPointVisible(false);
             return;
         }
+
+        ApartmentLoopDoorRoleController storyDoor = null;
+        bool canUseStoryDoor = currentLocker == null && TryGetStoryDoorInSight(out storyDoor);
 
         // ロッカー内で退出可能な状態かを確認します。
         // Checks whether the Player can exit the current locker.
@@ -73,7 +94,7 @@ public class PlayerInteraction : MonoBehaviour
         // 入るか出ることができる場合だけポイントを表示します。
         // Shows the point only when entering or exiting is possible.
         SetInteractionPointVisible(
-            canExitLocker || canEnterLocker
+            canExitLocker || canUseStoryDoor || canEnterLocker
         );
 
         if (Mouse.current == null ||
@@ -95,6 +116,13 @@ public class PlayerInteraction : MonoBehaviour
             return;
         }
 
+        if (canUseStoryDoor)
+        {
+            storyDoor.Interact();
+            SetInteractionPointVisible(false);
+            return;
+        }
+
         // 正面のロッカーへ入ります。
         // Enters the locker currently in sight.
         if (canEnterLocker &&
@@ -103,6 +131,45 @@ public class PlayerInteraction : MonoBehaviour
             currentLocker = lockerInSight;
             SetInteractionPointVisible(false);
         }
+    }
+
+    private bool TryGetStoryDoorInSight(out ApartmentLoopDoorRoleController door)
+    {
+        door = null;
+        Ray ray = new Ray(playerCamera.transform.position, playerCamera.transform.forward);
+        if (!Physics.Raycast(ray, out RaycastHit hit, interactionDistance, interactionMask, QueryTriggerInteraction.Ignore))
+        {
+            return false;
+        }
+
+        door = hit.collider.GetComponentInParent<ApartmentLoopDoorRoleController>();
+
+        // 自宅ドア演出中は、視線がHideDoor本体ではなく同じLockerの
+        // Bodyや蝶番Colliderへ当たる場合も、そのFloorの代表ドアへ解決する。
+        // 通常のHideDoor状態ではHandlesStoryInteractionがfalseなので、
+        // 既存のLockerHideSpot判定には影響しない。
+        if (door == null)
+        {
+            Transform lockerRoot = hit.collider.transform;
+            while (lockerRoot != null && lockerRoot.name != "Locker")
+            {
+                lockerRoot = lockerRoot.parent;
+            }
+
+            if (lockerRoot != null)
+            {
+                door = lockerRoot.GetComponentInChildren<
+                    ApartmentLoopDoorRoleController>(true);
+            }
+        }
+
+        return door != null && door.HandlesStoryInteraction;
+    }
+
+    public void SetInteractionEnabled(bool enabled)
+    {
+        interactionEnabled = enabled;
+        if (!enabled) SetInteractionPointVisible(false);
     }
 
     // カメラ正面に操作可能なロッカーがあるか確認します。
@@ -133,7 +200,14 @@ public class PlayerInteraction : MonoBehaviour
         locker =
             hit.collider.GetComponentInParent<LockerHideSpot>();
 
-        return locker != null;
+        if (locker == null) return false;
+
+        ApartmentLoopDoorRoleController role =
+            locker.GetComponentInChildren<
+                ApartmentLoopDoorRoleController>(true);
+
+        return role == null ||
+            role.Role == ApartmentLoopDoorRole.HideDoor;
     }
 
     // 中央ポイントの表示状態を切り替えます。

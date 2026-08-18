@@ -14,6 +14,9 @@ public sealed class ApartmentLoopPauseMenuController : MonoBehaviour
     private Slider volumeSlider;
     private Slider brightnessSlider;
     private bool isPaused;
+    private ApartmentLoopControlLockManager controlLock;
+
+    public void SetControlLock(ApartmentLoopControlLockManager value) => controlLock = value;
 
     public void Configure(FirstPersonController player, PlayerInteraction interaction, FlashlightController flashlight, TMP_FontAsset font, Texture moveGuide, Texture interactGuide)
     {
@@ -41,7 +44,7 @@ public sealed class ApartmentLoopPauseMenuController : MonoBehaviour
         }
 
         if (isPaused) ClosePauseMenu();
-        else OpenPauseMenu();
+        else if (controlLock == null || controlLock.CanPause) OpenPauseMenu();
     }
 
     private void OpenPauseMenu()
@@ -51,20 +54,16 @@ public sealed class ApartmentLoopPauseMenuController : MonoBehaviour
         brightnessSlider.SetValueWithoutNotify(GameSettingsManager.Brightness);
         volumeSlider.SetValueWithoutNotify(GameSettingsManager.MasterVolume);
         pauseMenu.SetActive(true);
-        SetGameplayEnabled(false);
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
-        Time.timeScale = 0f;
+        if (controlLock != null) controlLock.Acquire(ApartmentLoopLockReason.Pause);
+        else { SetGameplayEnabled(false); Cursor.lockState = CursorLockMode.None; Cursor.visible = true; Time.timeScale = 0f; }
     }
 
     private void ClosePauseMenu()
     {
         isPaused = false;
-        Time.timeScale = 1f;
         pauseMenu.SetActive(false);
-        SetGameplayEnabled(true);
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        if (controlLock != null) controlLock.Release(ApartmentLoopLockReason.Pause);
+        else { Time.timeScale = 1f; SetGameplayEnabled(true); Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; }
     }
 
     private void SetGameplayEnabled(bool enabledState)

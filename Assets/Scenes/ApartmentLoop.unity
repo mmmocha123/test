@@ -15135,6 +15135,7 @@ MonoBehaviour:
   cameraTransform: {fileID: 330585546}
   moveSpeed: 3
   sprintSpeed: 5.5
+  sprintEnabled: 1
   crouchSpeed: 1.5
   mouseSensitivity: 0.12
   gravity: -20
@@ -15172,18 +15173,30 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b83b872b947b4e69a5ac2f83142dab72, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ApartmentLoopRuntimeSetup
   footstepClip: {fileID: 8300000, guid: b1002715462b6894a80e75bf66574563, type: 3}
   ambientClip: {fileID: 8300000, guid: 8db08cabff17429b86bb10d45df6db09, type: 3}
-  footstepVolume: 0.7
-  ambientVolume: 0.35
+  footstepVolume: 0.572
+  ambientVolume: 0.152
+  enemyFootstepClip: {fileID: 8300000, guid: 57c6d5684e5f4c96bbb66b362def40dd, type: 3}
+  enemyFootstepVolume: 1
+  enemyFootstepMinDistance: 1
+  enemyFootstepMaxDistance: 14
   playerCamera: {fileID: 330585545}
   flashlightIntensity: 15
   flashlightRange: 20
+  chaseBlinkInterval: 0.12
+  enemyDebugVisible: 1
+  enemyDebugColor: {r: 1, g: 0, b: 1, a: 1}
+  enemyDebugMarkerScale: 1
+  enemyDebugShowLogicalFloor: 1
+  enemyDebugClampToScreen: 1
+  enemyDebugScreenMargin: 65
   settingsFont: {fileID: 11400000, guid: a28abf29edc647f5910dd3a8ec1c567b, type: 2}
   moveGuideTexture: {fileID: 2800000, guid: 6d436f17d42e41ddb89d272393a74c7b, type: 3}
   interactGuideTexture: {fileID: 2800000, guid: db328b6cb20c4054bc61050399ae7426, type: 3}
+  doorOpenClip: {fileID: 8300000, guid: 8972394adfc855b40a7009288adb1c75, type: 3}
 --- !u!43 &328840851
 Mesh:
   m_ObjectHideFlags: 0
@@ -41211,6 +41224,7 @@ MonoBehaviour:
   - {fileID: 1740521932}
   floorHeight: 4
   recycleTriggerOffset: 0.2
+  initialLogicalFloor: 4
 --- !u!4 &943943643
 Transform:
   m_ObjectHideFlags: 0
