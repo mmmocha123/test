@@ -74,6 +74,9 @@ public class PlayerInteraction : MonoBehaviour
 
         ApartmentLoopDoorRoleController storyDoor = null;
         bool canUseStoryDoor = currentLocker == null && TryGetStoryDoorInSight(out storyDoor);
+        IPlayerInteractable generalInteractable = null;
+        bool canUseGeneralInteractable = currentLocker == null &&
+            TryGetGeneralInteractableInSight(out generalInteractable);
 
         // ロッカー内で退出可能な状態かを確認します。
         // Checks whether the Player can exit the current locker.
@@ -94,7 +97,7 @@ public class PlayerInteraction : MonoBehaviour
         // 入るか出ることができる場合だけポイントを表示します。
         // Shows the point only when entering or exiting is possible.
         SetInteractionPointVisible(
-            canExitLocker || canUseStoryDoor || canEnterLocker
+            canExitLocker || canUseStoryDoor || canUseGeneralInteractable || canEnterLocker
         );
 
         if (Mouse.current == null ||
@@ -123,6 +126,13 @@ public class PlayerInteraction : MonoBehaviour
             return;
         }
 
+        if (canUseGeneralInteractable)
+        {
+            generalInteractable.Interact(playerController);
+            SetInteractionPointVisible(false);
+            return;
+        }
+
         // 正面のロッカーへ入ります。
         // Enters the locker currently in sight.
         if (canEnterLocker &&
@@ -131,6 +141,32 @@ public class PlayerInteraction : MonoBehaviour
             currentLocker = lockerInSight;
             SetInteractionPointVisible(false);
         }
+    }
+
+    private bool TryGetGeneralInteractableInSight(out IPlayerInteractable interactable)
+    {
+        interactable = null;
+        if (playerCamera == null) return false;
+
+        Ray ray = new Ray(playerCamera.transform.position, playerCamera.transform.forward);
+        if (!Physics.Raycast(ray, out RaycastHit hit, interactionDistance,
+                interactionMask, QueryTriggerInteraction.Ignore))
+        {
+            return false;
+        }
+
+        MonoBehaviour[] behaviours =
+            hit.collider.GetComponentsInParent<MonoBehaviour>(true);
+        foreach (MonoBehaviour behaviour in behaviours)
+        {
+            if (behaviour is IPlayerInteractable candidate &&
+                candidate.CanInteract(playerController))
+            {
+                interactable = candidate;
+                return true;
+            }
+        }
+        return false;
     }
 
     private bool TryGetStoryDoorInSight(out ApartmentLoopDoorRoleController door)

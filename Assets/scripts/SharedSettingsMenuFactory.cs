@@ -1,5 +1,7 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
 public sealed class SharedSettingsMenuView
@@ -15,6 +17,8 @@ public static class SharedSettingsMenuFactory
 {
     public static SharedSettingsMenuView Create(TMP_FontAsset font, Texture moveGuide, Texture interactGuide)
     {
+        EnsureEventSystem();
+
         if (font == null)
         {
             font = Resources.Load<TMP_FontAsset>(
@@ -74,6 +78,17 @@ public static class SharedSettingsMenuFactory
             BrightnessSlider = brightness,
             VolumeSlider = volume
         };
+    }
+
+    private static void EnsureEventSystem()
+    {
+        if (EventSystem.current != null) return;
+
+        GameObject eventSystemObject = new GameObject("EventSystem");
+        eventSystemObject.AddComponent<EventSystem>();
+        InputSystemUIInputModule inputModule =
+            eventSystemObject.AddComponent<InputSystemUIInputModule>();
+        inputModule.AssignDefaultActions();
     }
 
     private static Slider CreateSettingSlider(Transform parent, string label, float y, float minimum, float maximum, TMP_FontAsset font)

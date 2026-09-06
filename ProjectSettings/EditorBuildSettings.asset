@@ -15,6 +15,9 @@ EditorBuildSettings:
     path: Assets/Scenes/HomeInterior.unity
     guid: b55ad1874d0d41e2862139357bb6c901
   - enabled: 1
+    path: Assets/Scenes/ChaseMap.unity
+    guid: d7640a3c79454e97a57cd8e36c3aab39
+  - enabled: 1
     path: Assets/Scenes/Title.unity
     guid: 692170369f114d57837ac89af67ea211
   m_configObjects:

@@ -10,14 +10,19 @@ public sealed class ApartmentLoopDialogueManager : MonoBehaviour
     [SerializeField] private float charactersPerSecond = 20f;
     private ApartmentLoopControlLockManager control;
     private GameObject panel;
+    private GameObject centeredPanel;
     private TMP_Text text;
+    private TMP_Text centeredText;
+    private TMP_Text activeText;
     private string[] messages;
     private int index;
     private bool typing;
     private int startFrame;
     private Coroutine routine;
     private Action completed;
-    public bool IsActive => panel != null && panel.activeSelf;
+    public bool IsActive =>
+        (panel != null && panel.activeSelf) ||
+        (centeredPanel != null && centeredPanel.activeSelf);
 
     public void Configure(ApartmentLoopControlLockManager lockManager, TMP_FontAsset font)
     {
@@ -25,14 +30,34 @@ public sealed class ApartmentLoopDialogueManager : MonoBehaviour
         Canvas canvas = RuntimeUi.CreateCanvas("ApartmentLoopDialogueCanvas", 200);
         panel = RuntimeUi.CreatePanel(canvas.transform, "DialoguePanel", new Color(0,0,0,.72f), new Vector2(.08f,.04f), new Vector2(.92f,.25f));
         text = RuntimeUi.CreateText(panel.transform, "DialogueText", font, 32, TextAlignmentOptions.MidlineLeft);
+        Canvas centeredCanvas = RuntimeUi.CreateCanvas("CenteredDialogueCanvas", 210);
+        centeredPanel = RuntimeUi.CreatePanel(centeredCanvas.transform,
+            "CenteredDialoguePanel", Color.clear,
+            new Vector2(.13f, .18f), new Vector2(.87f, .82f));
+        centeredText = RuntimeUi.CreateText(centeredPanel.transform,
+            "CenteredDialogueText", font, 38, TextAlignmentOptions.Center);
         panel.SetActive(false);
+        centeredPanel.SetActive(false);
     }
 
     public bool BeginDialogue(string[] lines, Action onCompleted = null)
     {
+        return Begin(lines, false, onCompleted);
+    }
+
+    public bool BeginCenteredDialogue(string[] lines, Action onCompleted = null)
+    {
+        return Begin(lines, true, onCompleted);
+    }
+
+    private bool Begin(string[] lines, bool centered, Action onCompleted)
+    {
         if (IsActive || lines == null || lines.Length == 0) return false;
         messages = lines; index = 0; completed = onCompleted; startFrame = Time.frameCount;
-        panel.SetActive(true); control.Acquire(ApartmentLoopLockReason.Dialogue); Show(); return true;
+        panel.SetActive(!centered);
+        centeredPanel.SetActive(centered);
+        activeText = centered ? centeredText : text;
+        control.Acquire(ApartmentLoopLockReason.Dialogue); Show(); return true;
     }
 
     private void Update()
@@ -49,18 +74,18 @@ public sealed class ApartmentLoopDialogueManager : MonoBehaviour
     }
     private IEnumerator Type(string value)
     {
-        typing = true; text.text = value; text.maxVisibleCharacters = 0; text.ForceMeshUpdate();
+        typing = true; activeText.text = value; activeText.maxVisibleCharacters = 0; activeText.ForceMeshUpdate();
         float delay = 1f / Mathf.Max(1, charactersPerSecond);
-        for (int i = 1; i <= text.textInfo.characterCount; i++) { text.maxVisibleCharacters = i; yield return new WaitForSecondsRealtime(delay); }
+        for (int i = 1; i <= activeText.textInfo.characterCount; i++) { activeText.maxVisibleCharacters = i; yield return new WaitForSecondsRealtime(delay); }
         typing = false; routine = null;
     }
     private void CompleteTyping()
     {
-        if (routine != null) StopCoroutine(routine); routine = null; text.ForceMeshUpdate(); text.maxVisibleCharacters = text.textInfo.characterCount; typing = false;
+        if (routine != null) StopCoroutine(routine); routine = null; activeText.ForceMeshUpdate(); activeText.maxVisibleCharacters = activeText.textInfo.characterCount; typing = false;
     }
     private void End()
     {
-        panel.SetActive(false); messages = null; control.Release(ApartmentLoopLockReason.Dialogue); Action callback = completed; completed = null; callback?.Invoke();
+        panel.SetActive(false); centeredPanel.SetActive(false); messages = null; activeText = null; control.Release(ApartmentLoopLockReason.Dialogue); Action callback = completed; completed = null; callback?.Invoke();
     }
 }
 

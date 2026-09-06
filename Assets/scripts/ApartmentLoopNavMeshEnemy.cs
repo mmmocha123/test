@@ -458,14 +458,8 @@ public sealed class InvisibleEnemyController : MonoBehaviour
 
     private bool CanSeePlayer()
     {
-        if (player.IsHidden) return false;
-        Vector3 eye = transform.position + Vector3.up * 1.45f;
-        Vector3 target = player.transform.position + Vector3.up * 1.1f;
-        Vector3 delta = target - eye;
-        if (delta.magnitude > viewDistance || Vector3.Angle(transform.forward, delta) > fieldOfView * .5f) return false;
-        return Physics.Raycast(eye, delta.normalized, out RaycastHit hit,
-            viewDistance, lineOfSightMask, QueryTriggerInteraction.Ignore) &&
-            (hit.transform == player.transform || hit.transform.IsChildOf(player.transform));
+        return SharedEnemyPerception.CanSeePlayer(transform, player,
+            viewDistance, fieldOfView, lineOfSightMask);
     }
 
     private void PrepareForFloorMove(FloorRuntimeData movedFloor)

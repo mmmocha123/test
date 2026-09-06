@@ -15,13 +15,16 @@ public sealed class HomeInteriorRuntimeSetup : MonoBehaviour
 
     [Header("Flashlight")]
     [SerializeField] private Camera playerCamera;
-    [SerializeField] private float flashlightIntensity = 15f;
-    [SerializeField] private float flashlightRange = 20f;
+    [SerializeField] private float flashlightIntensity = 5f;
+    [SerializeField] private float flashlightRange = 10f;
 
     [Header("Pause Menu Visuals")]
     [SerializeField] private TMP_FontAsset settingsFont;
     [SerializeField] private Texture moveGuideTexture;
     [SerializeField] private Texture interactGuideTexture;
+
+    [Header("HomeInterior Story")]
+    [SerializeField] private AudioClip doorOpenClip;
 
     private void Awake()
     {
@@ -50,6 +53,16 @@ public sealed class HomeInteriorRuntimeSetup : MonoBehaviour
             settingsFont,
             moveGuideTexture,
             interactGuideTexture);
+
+        HomeInteriorBootstrap bootstrap =
+            gameObject.AddComponent<HomeInteriorBootstrap>();
+        bootstrap.Configure(
+            playerController,
+            interactionController,
+            flashlight,
+            pauseController,
+            settingsFont,
+            doorOpenClip);
     }
 
     private FlashlightController CreateFlashlight()

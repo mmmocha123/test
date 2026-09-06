@@ -91,6 +91,7 @@ public static class HomeInteriorSceneBuilder
         PlayerInteraction playerInteraction = CreatePlayer();
         CreateClosetHideSpot(environment.transform, playerInteraction);
         CreateLighting();
+        ConfigureLightSwitches(environment.transform);
 
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene, ScenePath);
@@ -287,6 +288,8 @@ public static class HomeInteriorSceneBuilder
             AssetDatabase.LoadAssetAtPath<Texture>("Assets/Resources/SettingsUI/MoveGuide.png"));
         SetObjectReference(runtime, "interactGuideTexture",
             AssetDatabase.LoadAssetAtPath<Texture>("Assets/Resources/SettingsUI/InteractGuide.png"));
+        SetObjectReference(runtime, "doorOpenClip",
+            AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/ドアを開ける3.mp3"));
         return interaction;
     }
 
@@ -315,6 +318,61 @@ public static class HomeInteriorSceneBuilder
     public static void InstallClosetHideSpotBatch()
     {
         InstallClosetHideSpotInExistingScene();
+    }
+
+    [MenuItem("Tools/Home Interior/Install Light Switches In Existing Scene")]
+    public static void InstallLightSwitchesInExistingScene()
+    {
+        Scene scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+        GameObject environment = GameObject.Find("Home Environment");
+        if (environment == null)
+        {
+            Debug.LogError("HomeInterior: environment was not found.");
+            return;
+        }
+
+        ConfigureLightSwitches(environment.transform);
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene, ScenePath);
+        AssetDatabase.SaveAssets();
+        Debug.Log("HomeInterior: three light switches installed.");
+    }
+
+    public static void InstallLightSwitchesBatch()
+    {
+        InstallLightSwitchesInExistingScene();
+    }
+
+    private static void ConfigureLightSwitches(Transform environment)
+    {
+        foreach (HomeInteriorLightSwitch existing in
+                 Object.FindObjectsByType<HomeInteriorLightSwitch>(FindObjectsSortMode.None))
+        {
+            Object.DestroyImmediate(existing);
+        }
+
+        ConfigureLightSwitch(environment, "light switch.001", "Room Light 2");
+        ConfigureLightSwitch(environment, "light switch.002", "Room Light 3");
+        ConfigureLightSwitch(environment, "light switch.006", "Room Light 1");
+    }
+
+    private static void ConfigureLightSwitch(
+        Transform environment,
+        string switchName,
+        string lightName)
+    {
+        Transform switchTransform = FindChildByName(environment, switchName);
+        GameObject lightObject = GameObject.Find(lightName);
+        Light targetLight = lightObject != null ? lightObject.GetComponent<Light>() : null;
+        if (switchTransform == null || targetLight == null)
+        {
+            Debug.LogError("HomeInterior: could not connect " + switchName + " to " + lightName + ".");
+            return;
+        }
+
+        HomeInteriorLightSwitch lightSwitch =
+            switchTransform.gameObject.AddComponent<HomeInteriorLightSwitch>();
+        lightSwitch.Configure(targetLight);
     }
 
     private static void CreateClosetHideSpot(
